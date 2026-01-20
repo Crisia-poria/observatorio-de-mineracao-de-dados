@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Observatório da Mineração de Dados</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@300;500;700&display=swap');
+
+        :root {
+            --neon-green: #00ff41;
+            --neon-red: #ff3333;
+            --dark-bg: #0a0a0a;
+            --panel-bg: #111111;
+            --border-col: #333;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: #e0e0e0;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .neon-text {
+            color: var(--neon-green);
+            text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+        }
+
+        .glitch-border {
+            border: 1px solid var(--border-col);
+            transition: all 0.3s ease;
+        }
+
+        .glitch-border:hover {
+            border-color: var(--neon-green);
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.1);
+        }
+
+        /* Scanline effect */
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 10;
+            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0, 255, 65, 0.04) 50%, rgba(0,0,0,0) 100%);
+            opacity: 0.1;
+            position: fixed;
+            bottom: 100%;
+            animation: scanline 10s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes scanline {
+            0% { bottom: 100%; }
+            100% { bottom: -100px; }
+        }
+
+        details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        /* Tooltip personalizado para o canvas */
+        #canvas-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.95);
+            border: 1px solid var(--neon-green);
+            padding: 12px;
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.15);
+            max-width: 280px;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Toast Notification */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #111;
+            color: #00ff41;
+            text-align: center;
+            border: 1px solid #00ff41;
+            border-radius: 2px;
+            padding: 16px;
+            position: fixed;
+            z-index: 100;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
+        }
+
+        #toast.show {
+            visibility: visible;
+            -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+
+        @keyframes fadein {
+            from {bottom: 0; opacity: 0;}
+            to {bottom: 30px; opacity: 1;}
+        }
+
+        @keyframes fadeout {
+            from {bottom: 30px; opacity: 1;}
+            to {bottom: 0; opacity: 0;}
+        }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden">
+    <div class="scanline"></div>
+
+    <!-- Header -->
+    <header class="border-b border-gray-800 p-4 md:p-6 sticky top-0 bg-black/95 backdrop-blur-md z-50">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <div class="flex items-center gap-3 mb-1">
+                    <i data-lucide="eye" class="text-[#00ff41] w-6 h-6"></i>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tighter uppercase leading-none text-white">
+                        Observatório da <span class="neon-text">Mineração de Dados</span>
+                    </h1>
+                </div>
+                <div class="mono text-sm text-gray-400 font-mono pl-9">
+                    // seus dados <span class="bg-[#00ff41] text-black px-1 font-bold text-xs uppercase">dados?</span>
+                </div>
+            </div>
+            
+            <div class="hidden md:flex flex-col items-end gap-1 mono text-[10px] text-gray-600">
+                <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span> STATUS: VIGILÂNCIA ATIVA</span>
+                <span>IP: RASTREADO // SESSÃO: PÚBLICA</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-6 space-y-8">
+        
+        <!-- Manifesto & Data Visualizer -->
+        <section class="border-b border-gray-800 relative pt-4">
+            <div class="mb-8 flex justify-between items-end">
+                <p class="text-gray-400 max-w-2xl border-l-2 border-[#333] pl-4 text-sm md:text-base">
+                    Visualização paramétrica. As entidades orbitam em um perfil de octaedro curvo, tensionado pelo volume de dados que cada uma retém.
+                    <span class="text-[#00ff41] mono text-xs block mt-2">> OS DADOS AGORA SÃO VISÍVEIS DIRETAMENTE NO GRAFO.</span>
+                </p>
+                
+                <!-- Legenda Compacta -->
+                <div class="hidden md:block text-[10px] mono text-gray-600 text-right">
+                    <div>RAIO = VORACIDADE DA EXTRAÇÃO</div>
+                    <div>LINHAS = COMPARTILHAMENTO</div>
+                </div>
+            </div>
+
+            <!-- Container do Canvas Visualizador -->
+            <div class="relative w-full h-[800px] border border-gray-800 bg-[#050505] overflow-hidden rounded-sm mb-12 cursor-crosshair">
+                <canvas id="network-canvas" class="w-full h-full block"></canvas>
+                <div id="canvas-tooltip"></div>
+                
+                <!-- Overlay de legenda simples -->
+                <div class="absolute bottom-4 left-4 pointer-events-none text-xs mono text-gray-500 space-y-1 bg-black/80 p-3 rounded border border-gray-800 backdrop-blur-sm">
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full border border-[#00ff41]"></span> GIGANTES (TECH/GOV)</div>
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full border border-orange-500"></span> FINANCEIRO/VAREJO</div>
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full border border-blue-500"></span> INTERMEDIÁRIOS</div>
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full border border-pink-500"></span> APPS/INTIMIDADE</div>
+                    <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full border border-purple-500"></span> VIGILÂNCIA ESTATAL</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Toggles de Filtro -->
+        <div class="flex gap-4 mb-8 mono text-sm overflow-x-auto pb-2 z-20 relative">
+            <button onclick="filter('all')" class="bg-[#111] border border-gray-700 px-4 py-2 hover:bg-gray-800 transition active-filter text-[#00ff41]">TODAS</button>
+            <button onclick="filter('international')" class="bg-[#111] border border-gray-700 px-4 py-2 hover:bg-gray-800 transition">INTERNACIONAL (BIG TECH)</button>
+            <button onclick="filter('national')" class="bg-[#111] border border-gray-700 px-4 py-2 hover:bg-gray-800 transition">NACIONAL (BRASIL)</button>
+        </div>
+
+        <!-- Grid de Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="card-grid">
+            
+            <!-- Internacional: Google -->
+            <div class="card international bg-[#111] p-6 glitch-border group">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-gray-800 p-2 rounded">
+                            <i data-lucide="search" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">Alphabet (Google)</h3>
+                    </div>
+                    <span class="mono text-xs border border-red-900 text-red-500 px-2 py-1 rounded bg-red-900/10">RISCO EXTREMO</span>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <p class="mono text-xs text-gray-500 mb-1">O QUE EXTRAEM:</p>
+                        <p class="text-sm text-gray-300">Histórico de busca, localização (GPS + Wi-Fi), voz (Google Assistant), emails, fotos, biometria facial, DNA digital do seu dispositivo.</p>
+                    </div>
+                    <div>
+                        <p class="mono text-xs text-gray-500 mb-1">MECANISMO:</p>
+                        <p class="text-sm text-gray-300">Onipresença. Android, Chrome, Maps e YouTube criam um cerco de vigilância 360º.</p>
+                    </div>
+                    <details class="group/details">
+                        <summary class="cursor-pointer text-xs mono text-[#00ff41] hover:underline flex items-center gap-2 py-2 border-t border-gray-800 mt-4">
+                            <span>VER ESCÂNDALOS E FATOS</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 group-open/details:rotate-180 transition"></i>
+                        </summary>
+                        <div class="mt-2 text-sm text-gray-400 pl-4 border-l border-[#00ff41]">
+                            <p class="mb-2"><strong class="text-white">Caso Location History (2018):</strong> O Google continuava rastreando a localização de usuários mesmo quando a opção "Histórico de Localização" estava desligada.</p>
+                            <p><strong class="text-white">Projeto Dragonfly:</strong> Tentativa secreta de criar um buscador censurado para a China, ligando buscas a números de telefone pessoais.</p>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Internacional: Meta -->
+            <div class="card international bg-[#111] p-6 glitch-border">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-gray-800 p-2 rounded">
+                            <i data-lucide="share-2" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">Meta (Facebook/Insta)</h3>
+                    </div>
+                    <span class="mono text-xs border border-red-900 text-red-500 px-2 py-1 rounded bg-red-900/10">RISCO EXTREMO</span>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <p class="mono text-xs text-gray-500 mb-1">O QUE EXTRAEM:</p>
+                        <p class="text-sm text-gray-300">Grafo social (quem você conhece), estados emocionais, reconhecimento facial em fotos não marcadas, metadados de WhatsApp.</p>
+                    </div>
+                    <div>
+                        <p class="mono text-xs text-gray-500 mb-1">MECANISMO:</p>
+                        <p class="text-sm text-gray-300">Pixel de rastreamento instalado em milhões de sites externos rastreia você mesmo fora das redes sociais.</p>
+                    </div>
+                    <details class="group/details">
+                        <summary class="cursor-pointer text-xs mono text-[#00ff41] hover:underline flex items-center gap-2 py-2 border-t border-gray-800 mt-4">
+                            <span>VER ESCÂNDALOS E FATOS</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 group-open/details:rotate-180 transition"></i>
+                        </summary>
+                        <div class="mt-2 text-sm text-gray-400 pl-4 border-l border-[#00ff41]">
+                            <p class="mb-2"><strong class="text-white">Cambridge Analytica (2018):</strong> Dados de 87 milhões de usuários coletados sem consentimento para manipulação psicológica em eleições (EUA e Brexit).</p>
+                            <p><strong class="text-white">Facebook Papers:</strong> Documentos vazados provaram que a empresa sabia que o Instagram era tóxico para adolescentes e escolheu o lucro.</p>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+             <!-- Nacional: Serasa -->
+             <div class="card national bg-[#111] p-6 glitch-border">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-gray-800 p-2 rounded">
+                            <i data-lucide="credit-card" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">Serasa Experian</h3>
+                    </div>
+                    <span class="mono text-xs border border-orange-900 text-orange-500 px-2 py-1 rounded bg-orange-900/10">RISCO ALTO</span>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <p class="mono text-xs text-gray-500 mb-1">O QUE EXTRAEM:</p>
+                        <p class="text-sm text-gray-300">Histórico financeiro completo, dívidas, endereços, parentescos e probabilidade de inadimplência (Score).</p>
+                    </div>
+                    <div>
+                        <p class="mono text-xs text-gray-500 mb-1">MECANISMO:</p>
+                        <p class="text-sm text-gray-300">Centralização de dados bancários e cartoriais. Cadastro Positivo compulsório (opt-out difícil).</p>
+                    </div>
+                    <details class="group/details">
+                        <summary class="cursor-pointer text-xs mono text-[#00ff41] hover:underline flex items-center gap-2 py-2 border-t border-gray-800 mt-4">
+                            <span>VER ESCÂNDALOS E FATOS</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 group-open/details:rotate-180 transition"></i>
+                        </summary>
+                        <div class="mt-2 text-sm text-gray-400 pl-4 border-l border-[#00ff41]">
+                            <p class="mb-2"><strong class="text-white">Megavazamento de 223 Milhões (2021):</strong> Embora a Serasa negue ser a fonte, o arquivo "Mosaic" vendido na dark web continha estruturas de dados idênticas às usadas pela empresa.</p>
+                            <p><strong class="text-white">Venda de Listas:</strong> Comercialização de "leads" segmentados (ex: idosos com alta renda) para marketing agressivo.</p>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Nacional: Governo -->
+            <div class="card national bg-[#111] p-6 glitch-border">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-gray-800 p-2 rounded">
+                            <i data-lucide="server" class="w-6 h-6 text-white"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">Serpro / Dataprev</h3>
+                    </div>
+                    <span class="mono text-xs border border-purple-900 text-purple-500 px-2 py-1 rounded bg-purple-900/10">INFRA ESTATAL</span>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <p class="mono text-xs text-gray-500 mb-1">O QUE EXTRAEM:</p>
+                        <p class="text-sm text-gray-300">Processam 9 Petabytes por ano. Tudo: Imposto de renda, CNH, RG, dados biométricos e previdenciários.</p>
+                    </div>
+                    <div>
+                        <p class="mono text-xs text-gray-500 mb-1">MECANISMO:</p>
+                        <p class="text-sm text-gray-300">Monopólio do processamento de dados do cidadão brasileiro. Histórico de venda de dados para bureaus privados.</p>
+                    </div>
+                    <details class="group/details">
+                        <summary class="cursor-pointer text-xs mono text-[#00ff41] hover:underline flex items-center gap-2 py-2 border-t border-gray-800 mt-4">
+                            <span>VER ESCÂNDALOS E FATOS</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 group-open/details:rotate-180 transition"></i>
+                        </summary>
+                        <div class="mt-2 text-sm text-gray-400 pl-4 border-l border-[#00ff41]">
+                            <p class="mb-2"><strong class="text-white">Venda de Dados:</strong> O Serpro já teve portarias que permitiam a venda de dados biométricos (fotos e digitais da CNH) para empresas privadas.</p>
+                            <p><strong class="text-white">Centralização de Risco:</strong> Um único ponto de falha para a segurança nacional.</p>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer / Action / References -->
+        <section class="mt-16 border-t border-gray-800 pt-8 text-center pb-20">
+            <h3 class="text-2xl font-bold mb-4">O Que Fazer?</h3>
+            <div class="flex flex-col md:flex-row justify-center gap-4 mb-12">
+                <a href="#" class="bg-white text-black px-6 py-3 font-bold hover:bg-gray-200 transition">Exigir meus dados (LGPD)</a>
+                <a href="#" class="border border-[#00ff41] text-[#00ff41] px-6 py-3 font-bold hover:bg-[#00ff41] hover:text-black transition">Denunciar à ANPD</a>
+            </div>
+
+            <!-- Referências Detalhadas -->
+            <div class="text-left max-w-4xl mx-auto border-t border-gray-800 pt-8">
+                <h4 class="text-lg font-bold mb-4 text-[#00ff41] mono">> FONTES & DOCUMENTAÇÃO INVESTIGATIVA:</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs text-gray-500 mono">
+                    <div>
+                        <p class="mb-2 font-bold text-gray-400">BIG TECH & VIGILÂNCIA:</p>
+                        <ul class="space-y-1 list-disc pl-4">
+                            <li><a href="#" class="hover:text-white underline">Electronic Frontier Foundation (EFF): "Inside the Data Broker Industry"</a></li>
+                            <li><a href="#" class="hover:text-white underline">The Intercept Brasil: "O Fim da Privacidade"</a></li>
+                            <li><a href="#" class="hover:text-white underline">Google & Meta Transparency Reports (2023-2024)</a></li>
+                            <li><a href="#" class="hover:text-white underline">Human Rights Watch: "Clearview AI e o Fim do Anonimato"</a></li>
+                            <li><a href="#" class="hover:text-white underline">Amnesty International: "Surveillance Giants"</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <p class="mb-2 font-bold text-gray-400">CENÁRIO BRASILEIRO:</p>
+                        <ul class="space-y-1 list-disc pl-4">
+                            <li><a href="#" class="hover:text-white underline">Data Privacy Brasil: "Assimetria de Dados no Varejo"</a></li>
+                            <li><a href="#" class="hover:text-white underline">Associação Brasileira de Jurimetria (Estudos LGPD)</a></li>
+                            <li><a href="#" class="hover:text-white underline">UOL TILT: "Megavazamento de 223 milhões de CPFs"</a></li>
+                            <li><a href="#" class="hover:text-white underline">Diário Oficial da União: Portarias Serpro/Dataprev (Venda de Dados)</a></li>
+                            <li><a href="#" class="hover:text-white underline">Relatórios da Autoridade Nacional de Proteção de Dados (ANPD)</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <p class="mt-8 text-gray-600 text-[10px] text-center max-w-2xl mx-auto">Este observatório é uma iniciativa independente de visualização de dados. Os volumes de dados apresentados são estimativas aproximadas baseadas em relatórios técnicos públicos, balanços de empresas e investigações jornalísticas. A responsabilidade pela transparência real é das entidades listadas.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Share Interface (Floating) -->
+    <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+        <!-- Share Menu (Hidden by default) -->
+        <div id="share-menu" class="hidden flex-col gap-3 mb-2 transition-all duration-300 origin-bottom-right transform scale-90 opacity-0">
+            <a href="javascript:void(0)" onclick="shareTo('whatsapp')" class="bg-[#25D366] text-black p-3 rounded-full hover:brightness-110 hover:scale-110 transition shadow-[0_0_15px_rgba(37,211,102,0.5)] flex items-center justify-center w-12 h-12" title="WhatsApp">
+                <i data-lucide="message-circle" class="w-5 h-5"></i>
+            </a>
+            <a href="javascript:void(0)" onclick="shareTo('twitter')" class="bg-white text-black p-3 rounded-full hover:brightness-110 hover:scale-110 transition shadow-[0_0_15px_rgba(255,255,255,0.5)] flex items-center justify-center w-12 h-12" title="X / Twitter">
+                <i data-lucide="twitter" class="w-5 h-5"></i>
+            </a>
+             <button onclick="copyLink()" class="bg-[#111] text-[#00ff41] border border-[#00ff41] p-3 rounded-full hover:bg-[#00ff41] hover:text-black hover:scale-110 transition shadow-[0_0_15px_rgba(0,255,65,0.3)] flex items-center justify-center w-12 h-12" title="Copiar Link (Instagram/Stories)">
+                <i data-lucide="link" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Main Share Button -->
+        <button onclick="toggleShare()" class="bg-[#00ff41] text-black p-4 rounded-full shadow-[0_0_20px_rgba(0,255,65,0.6)] hover:scale-110 hover:bg-white transition-all duration-300 flex items-center justify-center group w-14 h-14 relative overflow-hidden">
+            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
+            <i data-lucide="share-2" class="w-6 h-6 group-hover:rotate-180 transition-transform duration-500"></i>
+        </button>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast">LINK COPIADO // COLE NO INSTAGRAM</div>
+
+    <script>
+        // Use a wrapper to ensure lucide is loaded
+        document.addEventListener("DOMContentLoaded", () => {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            } else {
+                console.error("Lucide not loaded yet.");
+                setTimeout(() => {
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }, 500);
+            }
+
+            // Initialize Network Visualization
+            initNetworkGraph();
+            // Initialize Audio Listeners
+            initAudioUI();
+        });
+
+        // --- Audio System (Vocal Synthesis) ---
+        let audioCtx;
+        let isAudioInit = false;
+        let isAudioUnlocked = false; 
+
+        // Formant Frequencies for Vowels (Approximate)
+        // A: 800, 1200 | E: 500, 2300 | I: 300, 2500 | O: 500, 1000 | U: 300, 900
+        const formants = {
+            'A': { f1: 800, f2: 1200 },
+            'E': { f1: 500, f2: 2300 },
+            'I': { f1: 300, f2: 2500 },
+            'O': { f1: 500, f2: 1000 },
+            'U': { f1: 300, f2: 900 }
+        };
+
+        // Map Colors/Types to Vowels
+        // Tech (Green) -> I (High energy)
+        // Finance (Orange) -> O (Hollow)
+        // Broker/Infra (Blue) -> U (Deep/Dark)
+        // App (Pink) -> A (Open/Loud)
+        // State (Purple) -> E (Nasal/Bureaucratic)
+        
+        // Helper to get vowel based on color hex (since nodes use direct hex)
+        function getVowelFromColor(color) {
+            if (color === '#00ff41') return 'I'; // Green
+            if (color === '#f97316') return 'O'; // Orange
+            if (color === '#3b82f6') return 'U'; // Blue
+            if (color === '#ec4899') return 'A'; // Pink
+            if (color === '#a855f7') return 'E'; // Purple
+            return 'A'; // Default
+        }
+
+        function initAudio() {
+            if (isAudioInit) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            isAudioInit = true;
+        }
+
+        function unlockAudio() {
+            if (!isAudioInit) initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => { isAudioUnlocked = true; });
+            } else {
+                isAudioUnlocked = true;
+            }
+        }
+
+        function playVocalSound(color) {
+            if (!isAudioUnlocked || !audioCtx) return;
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); return; }
+
+            const vowelKey = getVowelFromColor(color);
+            const vowel = formants[vowelKey];
+
+            // Source Oscillator (Glottal source imitation - Sawtooth for buzz)
+            const osc = audioCtx.createOscillator();
+            osc.type = 'sawtooth';
+            // Base pitch varying slightly for organic feel (A2 - C3 range)
+            osc.frequency.value = 110 + Math.random() * 20; 
+
+            // Formant Filters
+            const filter1 = audioCtx.createBiquadFilter();
+            filter1.type = 'bandpass';
+            filter1.frequency.value = vowel.f1;
+            filter1.Q.value = 5; // Resonance
+
+            const filter2 = audioCtx.createBiquadFilter();
+            filter2.type = 'bandpass';
+            filter2.frequency.value = vowel.f2;
+            filter2.Q.value = 5;
+
+            // Gain Envelope
+            const gainNode = audioCtx.createGain();
+            
+            // Distortion (optional grit)
+            const distortion = audioCtx.createWaveShaper();
+            function makeDistortionCurve(amount) {
+                const k = amount;
+                const n_samples = 44100;
+                const curve = new Float32Array(n_samples);
+                const deg = Math.PI / 180;
+                for (let i = 0; i < n_samples; ++i) {
+                    const x = i * 2 / n_samples - 1;
+                    curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+                }
+                return curve;
+            }
+            distortion.curve = makeDistortionCurve(50); // Mild distortion
+            distortion.oversample = '4x';
+
+            // Routing: Osc -> Distortion -> Parallel Filters -> Gain -> Out
+            osc.connect(distortion);
+            
+            // Connect to both filters in parallel
+            distortion.connect(filter1);
+            distortion.connect(filter2);
+
+            filter1.connect(gainNode);
+            filter2.connect(gainNode);
+
+            gainNode.connect(audioCtx.destination);
+
+            // Envelope
+            const now = audioCtx.currentTime;
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.4, now + 0.05); // Attack
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.4); // Decay
+
+            osc.start(now);
+            osc.stop(now + 0.4);
+        }
+
+        // Generic click sound for UI buttons (simpler glitch)
+        function playClickSound() {
+            if (!isAudioUnlocked || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = 80;
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function initAudioUI() {
+            document.addEventListener('click', unlockAudio, { once: true });
+            document.addEventListener('touchstart', unlockAudio, { once: true });
+
+            const interactables = document.querySelectorAll('button, a, summary');
+            interactables.forEach(el => {
+                el.addEventListener('click', () => {
+                    unlockAudio();
+                    playClickSound();
+                });
+            });
+        }
+
+        // --- Share Functions ---
+        function toggleShare() {
+            playClickSound();
+            const menu = document.getElementById('share-menu');
+            
+            // Tenta usar o compartilhamento nativo do celular primeiro (Android/iOS)
+            if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                navigator.share({
+                    title: 'Observatório da Mineração de Dados',
+                    text: 'Seus dados dados? Veja quem está minerando sua vida.',
+                    url: window.location.href
+                }).catch((error) => console.log('Error sharing', error));
+                return;
+            }
+
+            // Fallback para Desktop: Mostra o menu customizado
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                // Small delay to allow display:flex to apply before opacity transition
+                setTimeout(() => {
+                    menu.classList.remove('scale-90', 'opacity-0');
+                }, 10);
+            } else {
+                menu.classList.add('scale-90', 'opacity-0');
+                setTimeout(() => {
+                    menu.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        function shareTo(platform) {
+            const url = encodeURIComponent(window.location.href);
+            const text = encodeURIComponent("Seus dados dados? Veja quem está minerando sua vida neste Observatório:");
+            
+            let shareUrl = '';
+            if (platform === 'whatsapp') {
+                shareUrl = `https://api.whatsapp.com/send?text=${text}%20${url}`;
+            } else if (platform === 'twitter') {
+                shareUrl = `https://twitter.com/intent/tweet?text=${text}&url=${url}`;
+            }
+            
+            if(shareUrl) window.open(shareUrl, '_blank');
+        }
+
+        function copyLink() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                showToast();
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                // Fallback for some browsers
+                const textArea = document.createElement("textarea");
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textArea);
+                showToast();
+            });
+        }
+
+        function showToast() {
+            const x = document.getElementById("toast");
+            x.className = "show";
+            setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+        }
+
+        function filter(category) {
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                if (category === 'all') {
+                    card.style.display = 'block';
+                } else {
+                    if (card.classList.contains(category)) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                }
+            });
+
+            const buttons = document.querySelectorAll('button:not([onclick^="share"], [onclick^="toggle"], [onclick^="copy"])');
+            buttons.forEach(btn => btn.classList.remove('text-[#00ff41]'));
+            // Fix: Check if event target is a button before adding class (click might be on icon)
+            if(event && event.target) {
+                const btn = event.target.closest('button');
+                if(btn) btn.classList.add('text-[#00ff41]');
+            }
+        }
+
+        // --- Data Visualization Graph Logic ---
+        function initNetworkGraph() {
+            const canvas = document.getElementById('network-canvas');
+            const tooltip = document.getElementById('canvas-tooltip');
+            const ctx = canvas.getContext('2d');
+            let w, h;
+            
+            // Nodes
+            const nodes = [
+                // Gigantes (Big Tech) - Topo da cadeia
+                { id: 'google', label: 'Google', r: 50, color: '#00ff41', score: 100, type: 'tech', volume: '900 DADOS/DIA (ANDROID)', desc: 'Coleta passiva 24h. Localização, voz, buscas, e-mails.' },
+                { id: 'meta', label: 'Meta', r: 45, color: '#00ff41', score: 95, type: 'tech', volume: '4+ PETABYTES/DIA', desc: 'Rastreamento cross-site (Pixel). Perfis psicológicos.' },
+                { id: 'serpro', label: 'Serpro', r: 40, color: '#a855f7', score: 92, type: 'tech', volume: '9 PETABYTES/ANO', desc: 'Processa IRPF, CNH, Siscomex. Vende acesso via API.' },
+                
+                // Infra e Vigilância Pesada
+                { id: 'acxiom', label: 'Acxiom', r: 28, color: '#3b82f6', score: 88, type: 'broker', volume: '2.5 BI PERFIS', desc: 'Broker invisível. Agrega dados offline e online.' },
+                { id: 'apple', label: 'Apple', r: 38, color: '#00ff41', score: 85, type: 'tech', volume: '1.5 BI DEVICES', desc: 'Ecossistema fechado. Dados de saúde e biometria.' },
+                { id: 'vivoclaro', label: 'Vivo/Claro', r: 35, color: '#3b82f6', score: 82, type: 'infra', volume: '100+ MI ASSINANTES', desc: 'Triangulação de antenas. Sabem onde você dorme.' },
+
+                // Governo e Crédito (Brasil)
+                { id: 'serasa', label: 'Serasa', r: 32, color: '#f97316', score: 80, type: 'finance', volume: '223 MI CPFS', desc: 'Megavazamento Mosaic. Venda de listas de mailing.' },
+                { id: 'gov', label: 'Gov.br', r: 35, color: '#a855f7', score: 78, type: 'tech', volume: '150 MI CADASTROS', desc: 'Login único obrigatório. Cruzamento total de dados.' },
+                
+                // Apps de Alta Retenção
+                { id: 'tiktok', label: 'TikTok', r: 38, color: '#ec4899', score: 75, type: 'app', volume: '1 BI USUÁRIOS', desc: 'Padrões de digitação, biometria facial, retenção.' },
+                { id: 'amazon', label: 'Amazon', r: 35, color: '#00ff41', score: 72, type: 'tech', volume: '70 GRAVAÇÕES/DIA', desc: 'Alexa ouve rotina familiar. Ring vigia a rua.' },
+                
+                // Nível Intermediário
+                { id: 'microsoft', label: 'Microsoft', r: 35, color: '#00ff41', score: 70, type: 'tech', volume: 'TELEMETRIA', desc: 'Dados corporativos (LinkedIn) e uso de OS.' },
+                { id: 'clearview', label: 'Clearview AI', r: 30, color: '#3b82f6', score: 68, type: 'infra', volume: '20 BI IMAGENS', desc: 'Raspagem ilegal de rostos na web para polícia.' },
+                
+                // Financeiro / Varejo
+                { id: 'boavista', label: 'Boa Vista', r: 28, color: '#f97316', score: 65, type: 'finance', volume: '12 MI CONSULTAS', desc: 'Cadastro positivo. Score de crédito.' },
+                { id: 'quod', label: 'Quod', r: 25, color: '#f97316', score: 62, type: 'finance', volume: 'SCORE POSITIVO', desc: 'Controlada pelos grandes bancos.' },
+                
+                // Apps Específicos
+                { id: 'twitter', label: 'X (Twitter)', r: 30, color: '#ec4899', score: 60, type: 'app', volume: 'OPINIÃO', desc: 'Grafo de influência política e discurso.' },
+                { id: 'uber', label: 'Uber', r: 20, color: '#ec4899', score: 55, type: 'app', volume: 'ROTINAS', desc: 'Sabe onde você trabalha, mora e se diverte.' },
+                { id: 'ifood', label: 'iFood', r: 22, color: '#ec4899', score: 50, type: 'app', volume: '70 MI PEDIDOS', desc: 'Hábitos alimentares e localização.' },
+                
+                // Nível Final
+                { id: 'netflix', label: 'Netflix', r: 25, color: '#ec4899', score: 45, type: 'app', volume: 'HÁBITOS', desc: 'Sabe exatamente quando você pausa.' },
+                { id: 'raia', label: 'Farmácias', r: 22, color: '#f97316', score: 40, type: 'finance', volume: '45 MI CLIENTES', desc: 'Monetização de doenças crônicas e CPF na nota.' },
+                { id: 'mercadolivre', label: 'Mercado Livre', r: 28, color: '#f97316', score: 35, type: 'finance', volume: 'CRÉDITO', desc: 'Ecossistema fechado de pagamentos.' }
+            ];
+
+            // Conexões
+            const links = [
+                { source: 'google', target: 'meta' }, 
+                { source: 'google', target: 'uber' },
+                { source: 'google', target: 'ifood' },
+                { source: 'google', target: 'apple' },
+                { source: 'meta', target: 'netflix' },
+                { source: 'meta', target: 'spotify' },
+                { source: 'meta', target: 'acxiom' },
+                { source: 'google', target: 'acxiom' },
+                { source: 'acxiom', target: 'serasa' },
+                { source: 'acxiom', target: 'raia' },
+                { source: 'serasa', target: 'boavista' },
+                { source: 'serasa', target: 'quod' },
+                { source: 'serasa', target: 'vivoclaro' },
+                { source: 'quod', target: 'mercadolivre' },
+                { source: 'gov', target: 'serpro' },
+                { source: 'serpro', target: 'serasa' },
+                { source: 'gov', target: 'vivoclaro' },
+                { source: 'clearview', target: 'google' },
+                { source: 'clearview', target: 'meta' },
+                { source: 'vivoclaro', target: 'apple' },
+                { source: 'tiktok', target: 'meta' }
+            ];
+
+            let simulationNodes = [];
+            let mouse = { x: 0, y: 0 };
+            let hoveredNode = null;
+            let lastHoveredId = null; // New state to trigger audio on entry
+
+            function hexToRgba(hex, alpha) {
+                var r = parseInt(hex.slice(1, 3), 16),
+                    g = parseInt(hex.slice(3, 5), 16),
+                    b = parseInt(hex.slice(5, 7), 16);
+                return `rgba(${r},${g},${b},${alpha})`;
+            }
+
+            const resize = () => {
+                w = canvas.width = canvas.parentElement.offsetWidth;
+                h = canvas.height = canvas.parentElement.offsetHeight;
+                initSimulation();
+            };
+
+            function initSimulation() {
+                // Ordenar por score
+                nodes.sort((a, b) => b.score - a.score);
+
+                simulationNodes = nodes.map(n => ({
+                    ...n,
+                    x: w/2, 
+                    y: h/2,
+                    vx: 0,
+                    vy: 0,
+                    phase: Math.random() * Math.PI * 2,
+                    renderX: 0,
+                    renderY: 0
+                }));
+            }
+
+            window.addEventListener('resize', resize);
+            
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                mouse.x = e.clientX - rect.left;
+                mouse.y = e.clientY - rect.top;
+
+                hoveredNode = null;
+                for(let n of simulationNodes) {
+                    let dx = mouse.x - n.renderX;
+                    let dy = mouse.y - n.renderY;
+                    if(dx*dx + dy*dy < n.r * n.r) {
+                        hoveredNode = n;
+                        break;
+                    }
+                }
+
+                if(hoveredNode) {
+                    // Trigger sound only on new hover entry
+                    if (hoveredNode.id !== lastHoveredId) {
+                        playVocalSound(hoveredNode.color);
+                        lastHoveredId = hoveredNode.id;
+                    }
+
+                    canvas.style.cursor = 'pointer';
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.pageX + 15) + 'px';
+                    tooltip.style.top = (e.pageY + 15) + 'px';
+                    tooltip.innerHTML = `
+                        <strong style="color:white; font-size:14px; text-transform:uppercase;">${hoveredNode.label}</strong><br>
+                        <span style="color:#ccc;">${hoveredNode.desc}</span>
+                    `;
+                } else {
+                    lastHoveredId = null; // Reset when leaving node
+                    canvas.style.cursor = 'crosshair';
+                    tooltip.style.display = 'none';
+                }
+            });
+
+            function updatePhysics() {
+                // Configuração do "Octaedro Curvo" (Losango Côncavo / Superelipse Ajustada)
+                // Ajustando para ser mais "fechada" nas pontas (topo/baixo) e mais larga (lados)
+                
+                const centerX = w / 2;
+                const centerY = h / 2;
+                
+                // Raios independentes para esticar verticalmente
+                const radiusX = Math.min(w, h) * 0.35; 
+                const radiusY = Math.min(w, h) * 0.45; // Mais alto que largo
+
+                const totalNodes = simulationNodes.length;
+
+                // Rotação orbital lenta
+                const time = Date.now() * 0.0001; 
+                const rotationOffset = time;
+
+                simulationNodes.forEach((n, i) => {
+                    // Distribuição angular
+                    let angle = (i / totalNodes) * Math.PI * 2 - Math.PI/2 + rotationOffset;
+
+                    // Superelipse com expoente < 1 para pontas côncavas (fechadas/agudas)
+                    // Exponente 0.8 faz uma curva "pinçada" (côncava) lembrando uma estrela ninja ou cristal.
+                    const exponent = 0.8; 
+                    
+                    const absCos = Math.abs(Math.cos(angle));
+                    const absSin = Math.abs(Math.sin(angle));
+                    const sgnCos = Math.sign(Math.cos(angle));
+                    const sgnSin = Math.sign(Math.sin(angle));
+
+                    // Aplica a deformação
+                    const targetX = centerX + radiusX * sgnCos * Math.pow(absCos, 2/exponent);
+                    const targetY = centerY + radiusY * sgnSin * Math.pow(absSin, 2/exponent);
+
+                    // Física de atração para o ponto alvo
+                    const forceStrength = 0.08; 
+                    n.vx += (targetX - n.x) * forceStrength;
+                    n.vy += (targetY - n.y) * forceStrength;
+
+                    // Repulsão local
+                    for(let j=0; j<simulationNodes.length; j++) {
+                        if (i === j) continue;
+                        let b = simulationNodes[j];
+                        let dx = n.x - b.x;
+                        let dy = n.y - b.y;
+                        let dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                        let minDist = n.r + b.r + 30; 
+
+                        if (dist < minDist) {
+                            let force = (minDist - dist) / dist;
+                            let repulsion = 0.15; 
+                            n.vx += (dx/dist) * force * repulsion;
+                            n.vy += (dy/dist) * force * repulsion;
+                        }
+                    }
+
+                    n.vx *= 0.85; // Atrito
+                    n.vy *= 0.85;
+
+                    n.x += n.vx;
+                    n.y += n.vy;
+                });
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, w, h);
+                let time = Date.now() * 0.0015;
+
+                // Render positions with float
+                simulationNodes.forEach(n => {
+                    let floatOffset = Math.sin(time + n.phase) * 4; 
+                    n.renderX = n.x;
+                    n.renderY = n.y + floatOffset;
+                });
+
+                // Desenhar Links
+                ctx.lineWidth = 1;
+                links.forEach(link => {
+                    let source = simulationNodes.find(n => n.id === link.source);
+                    let target = simulationNodes.find(n => n.id === link.target);
+                    
+                    if(source && target) {
+                        let isConnected = hoveredNode && (hoveredNode.id === source.id || hoveredNode.id === target.id);
+                        ctx.beginPath();
+                        ctx.moveTo(source.renderX, source.renderY);
+                        ctx.lineTo(target.renderX, target.renderY);
+                        
+                        if (hoveredNode) {
+                            ctx.strokeStyle = isConnected ? '#00ff41' : '#222';
+                            ctx.globalAlpha = isConnected ? 0.8 : 0.05;
+                            ctx.lineWidth = isConnected ? 1.5 : 1;
+                        } else {
+                            ctx.strokeStyle = '#222';
+                            ctx.globalAlpha = 0.4;
+                            ctx.lineWidth = 1;
+                        }
+                        ctx.stroke();
+                        ctx.globalAlpha = 1;
+                    }
+                });
+
+                // Desenhar Crateras
+                simulationNodes.forEach(n => {
+                    let rx = n.renderX;
+                    let ry = n.renderY;
+                    let isHovered = hoveredNode && hoveredNode.id === n.id;
+                    let isRelated = hoveredNode && links.some(l => 
+                        (l.source === hoveredNode.id && l.target === n.id) || 
+                        (l.target === hoveredNode.id && l.source === n.id)
+                    );
+                    let nodeColor = n.color;
+                    let opacity = 1;
+
+                    if (hoveredNode && !isHovered && !isRelated) {
+                        opacity = 0.2;
+                    }
+
+                    // Glow
+                    if (isHovered) {
+                        ctx.shadowBlur = 30;
+                        ctx.shadowColor = nodeColor;
+                    } else {
+                        ctx.shadowBlur = 0;
+                    }
+
+                    // Crater Gradient
+                    let grad = ctx.createRadialGradient(rx, ry, n.r * 0.1, rx, ry, n.r);
+                    grad.addColorStop(0, 'rgba(0,0,0,1)'); 
+                    grad.addColorStop(0.7, 'rgba(0,0,0,0.8)');
+                    grad.addColorStop(1, hexToRgba(nodeColor, 0.4)); 
+
+                    ctx.beginPath();
+                    ctx.arc(rx, ry, n.r, 0, Math.PI * 2);
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+
+                    // Rim
+                    ctx.beginPath();
+                    ctx.arc(rx, ry, n.r, 0, Math.PI * 2);
+                    ctx.strokeStyle = nodeColor;
+                    ctx.lineWidth = isHovered ? 3 : 2; 
+                    ctx.globalAlpha = opacity;
+                    ctx.stroke();
+
+                    // Rings
+                    ctx.beginPath();
+                    ctx.arc(rx, ry, n.r * 0.65, 0, Math.PI * 2);
+                    ctx.strokeStyle = nodeColor;
+                    ctx.lineWidth = 1;
+                    ctx.globalAlpha = opacity * 0.5;
+                    ctx.stroke();
+
+                    // Callout Line
+                    const dx = rx - w/2;
+                    const dy = ry - h/2;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const dirX = dx / dist;
+                    const dirY = dy / dist;
+
+                    const labelStartDist = n.r + 5;
+                    const labelEndDist = n.r + 35; 
+
+                    ctx.globalAlpha = opacity;
+                    ctx.shadowBlur = 0;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(rx + dirX * labelStartDist, ry + dirY * labelStartDist);
+                    ctx.lineTo(rx + dirX * labelEndDist, ry + dirY * labelEndDist);
+                    ctx.strokeStyle = nodeColor;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    
+                    ctx.beginPath();
+                    ctx.arc(rx + dirX * labelEndDist, ry + dirY * labelEndDist, 2, 0, Math.PI*2);
+                    ctx.fillStyle = nodeColor;
+                    ctx.fill();
+
+                    // TEXTO
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 12px "Space Grotesk"';
+                    
+                    let textAlign = 'center';
+                    let textX = rx + dirX * labelEndDist;
+                    let textY = ry + dirY * labelEndDist;
+
+                    if (Math.abs(dirX) > 0.2) { 
+                        textAlign = dirX > 0 ? 'left' : 'right';
+                        textX += dirX > 0 ? 8 : -8;
+                    }
+                    
+                    ctx.textAlign = textAlign;
+                    ctx.textBaseline = 'middle';
+                    
+                    ctx.fillText(n.label, textX, textY - 6);
+
+                    ctx.fillStyle = nodeColor;
+                    ctx.font = '10px "JetBrains Mono"';
+                    ctx.fillText(n.volume, textX, textY + 6);
+                });
+
+                requestAnimationFrame(() => {
+                    updatePhysics();
+                    draw();
+                });
+            }
+
+            resize();
+            draw();
+        }
+    </script>
+</body>
+</html>
